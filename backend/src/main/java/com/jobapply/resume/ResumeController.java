@@ -1,6 +1,7 @@
 package com.jobapply.resume;
 import com.jobapply.user.UserRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -32,6 +33,7 @@ public class ResumeController {
  @GetMapping public List<Map<String,Object>> list(Authentication auth){return resumes.findByUserEmailOrderByCreatedAtDesc(auth.getName()).stream().map(r->Map.<String,Object>of("id",r.getId(),"title",r.getTitle(),"fileName",r.getOriginalFileName(),"isMaster",r.isMaster(),"characterCount",r.getExtractedText().length(),"createdAt",r.getCreatedAt().toString())).toList();}
  @GetMapping("/{id}") public Map<String,Object> get(@PathVariable Long id,Authentication auth){Resume r=resumes.findByIdAndUserEmail(id,auth.getName()).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));return Map.of("id",r.getId(),"title",r.getTitle(),"fileName",r.getOriginalFileName(),"extractedText",r.getExtractedText(),"isMaster",r.isMaster());}
  @PutMapping("/{id}/master")
+ @Transactional
  public Map<String,Object> setMaster(@PathVariable Long id,Authentication auth){
   Resume selected=resumes.findByIdAndUserEmail(id,auth.getName())
    .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Resume not found"));
@@ -42,6 +44,7 @@ public class ResumeController {
   return Map.of("id",selected.getId(),"isMaster",true,"title",selected.getTitle());
  }
  @DeleteMapping("/{id}") @ResponseStatus(HttpStatus.NO_CONTENT)
+ @Transactional
  public void delete(@PathVariable Long id,Authentication auth){
   Resume selected=resumes.findByIdAndUserEmail(id,auth.getName())
    .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
