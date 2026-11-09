@@ -3,6 +3,9 @@ import com.jobapply.job.JobRepository;
 import com.jobapply.user.UserRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -16,16 +19,18 @@ public class ApplicationController {
  private static final Set<String> STATUSES=Set.of("SAVED","PREPARING","PENDING_APPROVAL","SUBMITTED","UNDER_REVIEW","INTERVIEW","REJECTED","OFFER","WITHDRAWN");
  public ApplicationController(ApplicationRepository a,JobRepository j,UserRepository u){applications=a;jobs=j;users=u;}
  record CreateRequest(@NotNull Long jobId){}
- record StatusRequest(@NotNull String status){}
+ record StatusRequest(@NotBlank @Size(max=40) String status){}
  @PostMapping public Map<String,Object> create(@Valid @RequestBody CreateRequest r,Authentication auth){
   String email=auth.getName();
   if(applications.existsByUserEmailAndJobId(email,r.jobId()))throw new ResponseStatusException(HttpStatus.CONFLICT,"You already have an application record for this job");
   var user=users.findByEmail(email).orElseThrow();var job=jobs.findVisibleById(r.jobId(),auth.getName()).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Job not found"));
-  var a=new ApplicationRecord();a.setUser(user);a.setJob(job);a.setStatus("SAVED");return view(applications.save(a));
+  var a=new ApplicationRecord();a.setUser(user);a.setJob(job);a.setStatus("SAVED");
+  try{return view(applications.save(a));}
+  catch(DataIntegrityViolationException ex){throw new ResponseStatusException(HttpStatus.CONFLICT,"You already have an application record for this job");}
  }
  @GetMapping public List<Map<String,Object>> list(Authentication auth){return applications.findByUserEmailOrderByCreatedAtDesc(auth.getName()).stream().map(this::view).toList();}
  @PatchMapping("/{id}/status") public Map<String,Object> status(@PathVariable Long id,@Valid @RequestBody StatusRequest r,Authentication auth){
-  String next=r.status().toUpperCase();
+  String next=r.status().trim().toUpperCase();
   if(!STATUSES.contains(next))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Unsupported application status");
   var a=applications.findByIdAndUserEmail(id,auth.getName()).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
   if(next.equals("SUBMITTED") && a.getSubmittedAt()==null) a.setSubmittedAt(Instant.now());
