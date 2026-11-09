@@ -7,8 +7,8 @@ A multi-user MVP built with React + Vite, Java 21 + Spring Boot, Spring Security
 - Per-user profile and application records.
 - Browse/search public job records and add private job descriptions to your own workspace.
 - Duplicate application prevention for the same user and job.
-- Application statuses and per-user dashboard counts.
-- PDF/DOCX resume text extraction (up to 5 MB; scanned-PDF OCR is not included).
+- Application statuses, private per-application notes, and per-user dashboard counts.
+- PDF/DOCX resume text extraction (up to 5 MB; scanned-PDF OCR is not included), master-resume selection, and safe deletion fallback.
 - Heuristic resume/job-description compatibility report.
 - Keyword-prioritized resume draft that reorders existing lines; it does not invent credentials.
 - Cover-letter starter template.
@@ -37,13 +37,14 @@ Backend health: `http://localhost:8080/api/v1/health`
 - `GET /api/v1/jobs` and `GET /api/v1/jobs?q=java`
 - `POST /api/v1/jobs` (authenticated; creates a private job record)
 - `POST /api/v1/resumes/upload` (multipart field `file`)
-- `GET /api/v1/resumes`, `GET /api/v1/resumes/{id}`, `DELETE /api/v1/resumes/{id}`
+- `GET /api/v1/resumes`, `GET /api/v1/resumes/{id}`, `PUT /api/v1/resumes/{id}/master`, `DELETE /api/v1/resumes/{id}`
 - `POST /api/v1/ats/analyze` (`resumeId`, `jobId`)
 - `POST /api/v1/ai/tailor-resume` (`resumeId`, `jobId`)
 - `POST /api/v1/ai/generate-cover-letter` (`resumeId`, `jobId`)
 - `POST /api/v1/applications` (`jobId`)
 - `GET /api/v1/applications`
 - `PATCH /api/v1/applications/{id}/status` (`status`)
+- `PUT /api/v1/applications/{id}/notes` (`notes`, private to the signed-in user)
 - `GET /api/v1/applications/stats`
 
 Application totals count statuses `SUBMITTED`, `UNDER_REVIEW`, `INTERVIEW`, `REJECTED`, and `OFFER`. Saved/preparation statuses are not counted as applied. A user changes the status after applying externally; this build does not verify external submissions.
