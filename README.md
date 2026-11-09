@@ -10,7 +10,7 @@ A multi-user MVP built with React + Vite, Java 21 + Spring Boot, Spring Security
 - Application statuses, private per-application notes, and per-user dashboard counts.
 - PDF/DOCX resume text extraction (up to 5 MB; scanned-PDF OCR is not included), master-resume selection, and safe deletion fallback.
 - Heuristic resume/job-description compatibility report.
-- Keyword-prioritized resume draft that reorders existing lines; it does not invent credentials.
+- Keyword-prioritized resume draft with downloadable DOCX export; it reorders existing lines and does not invent credentials.
 - Cover-letter starter template.
 
 ## Run with Docker Compose
@@ -40,6 +40,7 @@ Backend health: `http://localhost:8080/api/v1/health`
 - `GET /api/v1/resumes`, `GET /api/v1/resumes/{id}`, `PUT /api/v1/resumes/{id}/master`, `DELETE /api/v1/resumes/{id}`
 - `POST /api/v1/ats/analyze` (`resumeId`, `jobId`)
 - `POST /api/v1/ai/tailor-resume` (`resumeId`, `jobId`)
+- `POST /api/v1/ai/tailor-resume/export/docx` (`resumeId`, `jobId`; downloads a review-required DOCX draft)
 - `POST /api/v1/ai/generate-cover-letter` (`resumeId`, `jobId`)
 - `POST /api/v1/applications` (`jobId`)
 - `GET /api/v1/applications`
@@ -50,7 +51,7 @@ Backend health: `http://localhost:8080/api/v1/health`
 Application totals count statuses `SUBMITTED`, `UNDER_REVIEW`, `INTERVIEW`, `REJECTED`, and `OFFER`. Saved/preparation statuses are not counted as applied. A user changes the status after applying externally; this build does not verify external submissions.
 
 ## Important limitations
-The ATS result is an explainable heuristic compatibility estimate, not an employer ATS score or hiring prediction. Resume tailoring currently reorders existing text only. The original resume file is not retained; extracted text and file metadata are stored. The job list is not yet connected to live job boards; users can paste job descriptions manually. Automatic external application submission is not implemented.
+The ATS result is an explainable heuristic compatibility estimate, not an employer ATS score or hiring prediction. Resume tailoring currently reorders existing text only; the DOCX export is a basic editable draft, not a professionally formatted resume template. The original resume file is not retained; extracted text and file metadata are stored. The job list is not yet connected to live job boards; users can paste job descriptions manually. Automatic external application submission is not implemented.
 
 ## Remaining work before a public SaaS launch
 - Live job-source integrations and verified current job ingestion.
