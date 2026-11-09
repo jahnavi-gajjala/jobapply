@@ -105,6 +105,19 @@ export default function App() {
     try { const res = await api.post("/ai/tailor-resume", { resumeId: Number(resumeId), jobId: Number(jobId) }); setDraft(res.data.tailoredText); }
     catch (err) { setNotice(err.response?.data?.message || "Could not create a resume draft."); }
   }
+  async function downloadTailoredDocx() {
+    if (!resumeId || !jobId) { setNotice("Choose a resume and a job first."); return; }
+    try {
+      const response = await api.post("/ai/tailor-resume/export/docx",
+        { resumeId: Number(resumeId), jobId: Number(jobId) }, { responseType: "blob" });
+      const url = URL.createObjectURL(response.data);
+      const link = document.createElement("a");
+      link.href = url; link.download = "jobapply-tailored-resume.docx";
+      document.body.appendChild(link); link.click(); link.remove();
+      URL.revokeObjectURL(url);
+      setNotice("DOCX draft downloaded. Review formatting and every detail before applying.");
+    } catch { setNotice("Could not export the tailored DOCX."); }
+  }
   if (!token || !user) return <div className={dark ? "app dark" : "app light"}><Auth onAuth={authenticated} /></div>;
   const visibleJobs = jobs.filter(j => (j.jobTitle + " " + j.companyName + " " + (j.location || "")).toLowerCase().includes(query.toLowerCase()));
   const toolsPanel = <div className="panel tool-panel">
@@ -153,7 +166,7 @@ export default function App() {
         {page === "AI Resume Tailor" && <>
           <div className="page-heading"><p className="eyebrow">RESUME INTELLIGENCE</p><h1>Tailor your <em>resume.</em></h1><p className="muted">Creates a keyword-prioritized draft from your existing resume text.</p></div>
           {toolsPanel}<button className="primary" onClick={tailor}>Create tailored draft</button>
-          {draft && <section className="panel"><div className="panel-head"><h3>Draft — review before using</h3><button className="secondary" onClick={() => navigator.clipboard?.writeText(draft)}>Copy text</button></div><textarea className="draft" value={draft} onChange={e => setDraft(e.target.value)} /><p className="muted">This MVP reorders existing lines; it does not create a formatted document or invent qualifications.</p></section>}
+          {draft && <section className="panel"><div className="panel-head"><h3>Draft — review before using</h3><div className="row-actions"><button className="secondary" onClick={() => navigator.clipboard?.writeText(draft)}>Copy text</button><button className="primary" onClick={downloadTailoredDocx}>Download DOCX</button></div></div><textarea className="draft" value={draft} onChange={e => setDraft(e.target.value)} /><p className="muted">This MVP reorders existing lines; it does not create a formatted document or invent qualifications.</p></section>}
         </>}
         {page === "Applications" && <>
           <div className="page-heading"><p className="eyebrow">YOUR JOB SEARCH PIPELINE</p><h1>Application <em>tracker.</em></h1><p className="muted">Saved and preparation records are separate from submitted applications.</p></div>
