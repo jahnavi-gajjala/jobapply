@@ -1,0 +1,46 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: jobapply-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: jobapply_db
+      MYSQL_USER: jobapply
+      MYSQL_PASSWORD: ${DB_PASSWORD:-jobapply_dev}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_dev_only}
+    ports:
+      - "3306:3306"
+    volumes:
+      - jobapply_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    container_name: jobapply-backend
+    restart: unless-stopped
+    environment:
+      DB_HOST: mysql
+      DB_USERNAME: jobapply
+      DB_PASSWORD: ${DB_PASSWORD:-jobapply_dev}
+      JWT_SECRET: ${JWT_SECRET:-local-dev-only-secret-key-change-this-before-deploying-123456789}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build: ./frontend
+    container_name: jobapply-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  jobapply_mysql_data:

@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: jobapply
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:3306/jobapply_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${DB_USERNAME:jobapply}
+    password: ${DB_PASSWORD:jobapply_dev}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+server:
+  port: 8080
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+app:
+  jwt:
+    secret: ${JWT_SECRET:local-dev-only-secret-key-change-this-before-deploying-123456789}
+    expiration-ms: 86400000
