@@ -20,6 +20,7 @@ public class ApplicationController {
  public ApplicationController(ApplicationRepository a,JobRepository j,UserRepository u){applications=a;jobs=j;users=u;}
  record CreateRequest(@NotNull Long jobId){}
  record StatusRequest(@NotBlank @Size(max=40) String status){}
+ record NotesRequest(@Size(max=4000) String notes){}
  @PostMapping public Map<String,Object> create(@Valid @RequestBody CreateRequest r,Authentication auth){
   String email=auth.getName();
   if(applications.existsByUserEmailAndJobId(email,r.jobId()))throw new ResponseStatusException(HttpStatus.CONFLICT,"You already have an application record for this job");
@@ -36,6 +37,13 @@ public class ApplicationController {
   if(next.equals("SUBMITTED") && a.getSubmittedAt()==null) a.setSubmittedAt(Instant.now());
   a.setStatus(next);return view(applications.save(a));
  }
+ @PutMapping("/{id}/notes")
+ public Map<String,Object> updateNotes(@PathVariable Long id,@Valid @RequestBody NotesRequest request,Authentication auth){
+  var a=applications.findByIdAndUserEmail(id,auth.getName())
+   .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Application not found"));
+  a.setNotes(request.notes()==null?"":request.notes().trim());
+  return view(applications.save(a));
+ }
  @GetMapping("/stats") public Map<String,Object> stats(Authentication auth){
   String email=auth.getName();
   long total=applications.countByUserEmailAndStatusIn(email,List.of("SUBMITTED","UNDER_REVIEW","INTERVIEW","REJECTED","OFFER"));
@@ -49,7 +57,7 @@ public class ApplicationController {
  private Map<String,Object> view(ApplicationRecord a){
   return Map.of("id",a.getId(),"jobId",a.getJob().getId(),"companyName",a.getJob().getCompanyName(),
    "jobTitle",a.getJob().getJobTitle(),"location",a.getJob().getLocation()==null?"":a.getJob().getLocation(),
-   "status",a.getStatus(),"applicationMode",a.getApplicationMode(),
+   "status",a.getStatus(),"applicationMode",a.getApplicationMode(),"notes",a.getNotes()==null?"":a.getNotes(),
    "submittedAt",a.getSubmittedAt()==null?"":a.getSubmittedAt().toString(),"createdAt",a.getCreatedAt().toString());
  }
 }
