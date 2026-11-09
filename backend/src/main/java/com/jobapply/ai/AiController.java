@@ -3,6 +3,7 @@ import com.jobapply.job.JobRepository;
 import com.jobapply.resume.ResumeRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
@@ -47,7 +48,7 @@ public class AiController {
    document.write(output);
    HttpHeaders headers=new HttpHeaders();
    headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
-   headers.setContentDispositionFormData("attachment","jobapply-tailored-resume.docx");
+   headers.setContentDisposition(ContentDisposition.attachment().filename("jobapply-tailored-resume.docx").build());
    headers.setContentLength(output.size());
    return new ResponseEntity<>(output.toByteArray(),headers,HttpStatus.OK);
   }catch(Exception ex){
@@ -60,7 +61,7 @@ public class AiController {
    .results().map(m->m.group()).collect(java.util.stream.Collectors.toSet());
   return Arrays.stream(source.split("\\R")).map(String::trim).filter(x->!x.isBlank())
    .sorted(Comparator.comparingInt((String line)->(int)terms.stream().filter(line.toLowerCase()::contains).count()).reversed())
-   .collect(java.util.stream.Collectors.joining("\\n"));
+   .collect(java.util.stream.Collectors.joining("\n"));
  }
  @PostMapping("/generate-cover-letter") public Map<String,Object> cover(@RequestBody DraftRequest req,Authentication auth){
   var r=resumes.findByIdAndUserEmail(req.resumeId(),auth.getName()).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
