@@ -7,7 +7,7 @@ A multi-user MVP built with React + Vite, Java 21 + Spring Boot, Spring Security
 - Per-user profile and application records.
 - Browse/search public job records and add private job descriptions to your own workspace.
 - Duplicate application prevention for the same user and job.
-- Application statuses, private per-application notes, and per-user dashboard counts.
+- Application statuses, private per-application notes, per-user dashboard counts, and a chronological activity timeline (created, status changed, notes updated).
 - PDF/DOCX resume text extraction (up to 5 MB; scanned-PDF OCR is not included), master-resume selection, and safe deletion fallback.
 - Heuristic resume/job-description compatibility report.
 - Keyword-prioritized resume draft with downloadable DOCX export; it reorders existing lines and does not invent credentials.
@@ -43,7 +43,7 @@ Backend health: `http://localhost:8080/api/v1/health`
 - `POST /api/v1/ai/tailor-resume/export/docx` (`resumeId`, `jobId`; downloads a review-required DOCX draft)
 - `POST /api/v1/ai/generate-cover-letter` (`resumeId`, `jobId`)
 - `POST /api/v1/applications` (`jobId`)
-- `GET /api/v1/applications`
+- `GET /api/v1/applications`\n- `GET /api/v1/applications/{id}/activity` (private activity timeline)
 - `PATCH /api/v1/applications/{id}/status` (`status`)
 - `PUT /api/v1/applications/{id}/notes` (`notes`, private to the signed-in user)
 - `GET /api/v1/applications/stats`
