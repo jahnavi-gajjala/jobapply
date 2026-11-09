@@ -92,7 +92,13 @@ export default function App() {
     try { await api.patch("/applications/" + id + "/status", { status }); setNotice("Application status updated."); await refresh(); }
     catch { setNotice("Could not update the application status."); }
   }
-  async function saveSchedule(application, field, value) {\n    const updated = { interviewDate: application.interviewDate || null, followUpDate: application.followUpDate || null, [field]: value || null };\n    if (updated.interviewDate && updated.followUpDate && updated.followUpDate < updated.interviewDate) { setNotice("Follow-up date cannot be before the interview date."); await refresh(); return; }\n    try { await api.put("/applications/" + application.id + "/schedule", updated); setNotice("Application dates updated."); await refresh(); }\n    catch (err) { setNotice(err.response?.data?.message || "Could not update application dates."); }\n  }\n  async function showActivity(application) {
+  async function saveSchedule(application, field, value) {
+    const updated = { interviewDate: application.interviewDate || null, followUpDate: application.followUpDate || null, [field]: value || null };
+    if (updated.interviewDate && updated.followUpDate && updated.followUpDate < updated.interviewDate) { setNotice("Follow-up date cannot be before the interview date."); await refresh(); return; }
+    try { await api.put("/applications/" + application.id + "/schedule", updated); setNotice("Application dates updated."); await refresh(); }
+    catch (err) { setNotice(err.response?.data?.message || "Could not update application dates."); }
+  }
+  async function showActivity(application) {
     setActivityFor(application); setActivityItems([]); setActivityLoading(true);
     try { const response = await api.get("/applications/" + application.id + "/activity"); setActivityItems(response.data); }
     catch { setNotice("Could not load this application history."); setActivityFor(null); }
