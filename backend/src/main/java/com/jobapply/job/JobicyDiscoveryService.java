@@ -9,6 +9,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.HtmlUtils;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -52,19 +53,18 @@ public class JobicyDiscoveryService {
         }
 
         try {
+            var requestUri = UriComponentsBuilder.fromUriString("https://jobicy.com/api/jobs")
+                    .queryParam("count", safeCount)
+                    .queryParam("geo", normalizedGeo);
+            if (!normalizedKeyword.isBlank()) {
+                requestUri.queryParam("tag", normalizedKeyword);
+            }
+            if (cursor != null && !cursor.isBlank()) {
+                requestUri.queryParam("cursor", cursor);
+            }
+
             JsonNode response = client.get()
-                    .uri(builder -> {
-                        var uri = builder.path("/api/jobs")
-                                .queryParam("count", safeCount)
-                                .queryParam("geo", normalizedGeo);
-                        if (!normalizedKeyword.isBlank()) {
-                            uri.queryParam("tag", normalizedKeyword);
-                        }
-                        if (cursor != null && !cursor.isBlank()) {
-                            uri.queryParam("cursor", cursor);
-                        }
-                        return uri.build();
-                    })
+                    .uri(requestUri.build().encode().toUri())
                     .accept(MediaType.APPLICATION_JSON)
                     .retrieve()
                     .body(JsonNode.class);
