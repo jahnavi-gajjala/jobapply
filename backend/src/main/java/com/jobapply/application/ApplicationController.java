@@ -129,12 +129,21 @@ public class ApplicationController {
    "saved",applications.countByUserEmailAndStatusIn(email,List.of("SAVED","PREPARING","PENDING_APPROVAL")));
  }
  private Map<String,Object> view(ApplicationRecord a){
-  return Map.of("id",a.getId(),"jobId",a.getJob().getId(),"companyName",a.getJob().getCompanyName(),
-   "jobTitle",a.getJob().getJobTitle(),"location",a.getJob().getLocation()==null?"":a.getJob().getLocation(),
-   "status",a.getStatus(),"applicationMode",a.getApplicationMode(),"notes",a.getNotes()==null?"":a.getNotes(),
-   "submittedAt",a.getSubmittedAt()==null?"":a.getSubmittedAt().toString(),
-   "interviewDate",a.getInterviewDate()==null?"":a.getInterviewDate().toString(),
-   "followUpDate",a.getFollowUpDate()==null?"":a.getFollowUpDate().toString(),
-   "createdAt",a.getCreatedAt().toString());
+  // Map.of supports at most ten entries; Map.ofEntries keeps this response immutable
+  // while allowing all application fields to be returned.
+  return Map.ofEntries(
+   Map.entry("id",a.getId()),
+   Map.entry("jobId",a.getJob().getId()),
+   Map.entry("companyName",a.getJob().getCompanyName()),
+   Map.entry("jobTitle",a.getJob().getJobTitle()),
+   Map.entry("location",a.getJob().getLocation()==null?"":a.getJob().getLocation()),
+   Map.entry("status",a.getStatus()),
+   Map.entry("applicationMode",a.getApplicationMode()),
+   Map.entry("notes",a.getNotes()==null?"":a.getNotes()),
+   Map.entry("submittedAt",a.getSubmittedAt()==null?"":a.getSubmittedAt().toString()),
+   Map.entry("interviewDate",a.getInterviewDate()==null?"":a.getInterviewDate().toString()),
+   Map.entry("followUpDate",a.getFollowUpDate()==null?"":a.getFollowUpDate().toString()),
+   Map.entry("createdAt",a.getCreatedAt().toString())
+  );
  }
 }
