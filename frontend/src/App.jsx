@@ -68,9 +68,10 @@ export default function App() {
     try {
       const [s, a, j, r] = await Promise.all([api.get("/applications/stats"), api.get("/applications"), api.get("/jobs"), api.get("/resumes")]);
       setStats(s.data); setApps(a.data); setJobs(j.data); setResumes(r.data);
-      if (!resumeId && r.data.length) {
+      const selectedResumeExists = r.data.some(item => String(item.id) === resumeId);
+      if (!selectedResumeExists) {
         const preferredResume = r.data.find(item => item.isMaster) || r.data[0];
-        setResumeId(String(preferredResume.id));
+        setResumeId(preferredResume ? String(preferredResume.id) : "");
       }
     } catch (err) {
       if (err.response?.status === 401) logout();
@@ -199,7 +200,7 @@ export default function App() {
         {page === "My Resume" && <>
           <div className="page-heading"><p className="eyebrow">CAREER PROFILE</p><h1>My <em>resume.</em></h1><p className="muted">Upload a text-based PDF or DOCX (maximum 5 MB).</p></div>
           <form className="panel form-panel" onSubmit={uploadResume}><label>Resume title<input value={resumeTitle} onChange={e => setResumeTitle(e.target.value)} placeholder="Master resume" /></label><label>Choose resume<input type="file" accept=".pdf,.docx" onChange={e => setFile(e.target.files?.[0] || null)} /></label><button className="primary" disabled={!file}>Upload and parse</button></form>
-          <section className="panel"><h3>Your resumes</h3>{resumes.length ? resumes.map(r => <div className="list-row" key={r.id}><div><b>{r.title}</b><small>{r.fileName} · {r.characterCount} extracted characters</small></div><div className="row-actions">{r.isMaster ? <span className="status">MASTER</span> : <button className="secondary" onClick={async () => { try { await api.put("/resumes/" + r.id + "/master"); setNotice("Master resume updated."); await refresh(); } catch { setNotice("Could not update your master resume."); } }}>Set as master</button>}<button className="secondary" onClick={async () => { if (!window.confirm("Delete this resume?")) return; try { await api.delete("/resumes/" + r.id); setNotice("Resume deleted."); if (String(r.id) === resumeId) setResumeId(""); await refresh(); } catch { setNotice("Could not delete this resume."); } }}>Delete</button></div></div>) : <p className="muted">No resume uploaded yet.</p>}</section>
+          <section className="panel"><h3>Your resumes</h3>{resumes.length ? resumes.map(r => <div className="list-row" key={r.id}><div><b>{r.title}</b><small>{r.fileName} · {r.characterCount} extracted characters</small></div><div className="row-actions">{r.isMaster ? <span className="status">MASTER</span> : <button className="secondary" onClick={async () => { try { await api.put("/resumes/" + r.id + "/master"); setResumeId(String(r.id)); setNotice("Master resume updated."); await refresh(); } catch { setNotice("Could not update your master resume."); } }}>Set as master</button>}<button className="secondary" onClick={async () => { if (!window.confirm("Delete this resume?")) return; try { await api.delete("/resumes/" + r.id); setNotice("Resume deleted."); if (String(r.id) === resumeId) setResumeId(""); await refresh(); } catch { setNotice("Could not delete this resume."); } }}>Delete</button></div></div>) : <p className="muted">No resume uploaded yet.</p>}</section>
         </>}
         {page === "ATS Analyzer" && <>
           <div className="page-heading"><p className="eyebrow">RESUME INTELLIGENCE</p><h1>ATS <em>compatibility.</em></h1><p className="muted">An explainable estimate based on the job description, not an employer ATS score.</p></div>
