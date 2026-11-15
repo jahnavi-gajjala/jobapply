@@ -16,7 +16,7 @@ class JobicyDiscoveryServiceTest {
 
     @Test
     void mapsRemoteJobsAndPreservesTheProviderCursor() {
-        RestClient.Builder builder = RestClient.builder();
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://jobicy.com");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         JobicyDiscoveryService service = new JobicyDiscoveryService(builder.build());
 
