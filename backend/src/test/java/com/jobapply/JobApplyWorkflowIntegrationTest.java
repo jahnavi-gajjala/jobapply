@@ -2,6 +2,7 @@ package com.jobapply;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jobapply.job.JobRepository;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +35,7 @@ class JobApplyWorkflowIntegrationTest {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
+    @Autowired private JobRepository jobRepository;
 
     @Test
     void candidateCanCompleteTheCoreJobSearchWorkflowAndDataStaysPrivate() throws Exception {
@@ -283,6 +285,15 @@ class JobApplyWorkflowIntegrationTest {
                 .andReturn();
         long importedJobId = objectMapper.readTree(importResult.getResponse().getContentAsString())
                 .path("id").asLong();
+
+        // Confirm the imported row is stored as an active shared job.
+        var storedJob = jobRepository.findById(importedJobId).orElseThrow();
+        assertEquals("JOBICY", storedJob.getSource());
+        assertEquals("ACTIVE", storedJob.getStatus());
+        assertTrue(storedJob.getOwner() == null, "Imported listing should not have a user owner");
+        assertTrue(jobRepository.findByStatusAndOwnerIsNullOrderByCreatedAtDesc("ACTIVE").stream()
+                .anyMatch(job -> job.getId().equals(importedJobId)),
+                "Imported listing should appear in the public-jobs repository query");
 
         // A provider listing is public/shared; candidate-specific tracking remains private.
         MvcResult visibleJobs = mockMvc.perform(get("/api/v1/jobs")
