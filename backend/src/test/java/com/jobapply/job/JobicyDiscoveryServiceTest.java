@@ -1,11 +1,14 @@
 package com.jobapply.job;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
@@ -62,6 +65,23 @@ class JobicyDiscoveryServiceTest {
         assertTrue(response.hasMore());
         assertEquals("Jobicy", response.source());
         server.verify();
+    }
+
+    @Test
+    void rejectsKeywordsOutsideJobicyLengthLimitsBeforeCallingTheProvider() {
+        JobicyDiscoveryService service = new JobicyDiscoveryService(RestClient.builder().build());
+
+        ResponseStatusException tooShort = assertThrows(
+                ResponseStatusException.class,
+                () -> service.search("QA", "apac", 20, null)
+        );
+        assertEquals(HttpStatus.BAD_REQUEST, tooShort.getStatusCode());
+
+        ResponseStatusException tooLong = assertThrows(
+                ResponseStatusException.class,
+                () -> service.search("a".repeat(51), "apac", 20, null)
+        );
+        assertEquals(HttpStatus.BAD_REQUEST, tooLong.getStatusCode());
     }
 
     @Test
