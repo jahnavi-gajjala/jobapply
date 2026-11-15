@@ -181,7 +181,7 @@ test("candidate can add a job, save it, and update its application status", asyn
   await page.getByRole("button", { name: "Find Jobs" }).click();
   await page.getByPlaceholder("Company name").fill("Northstar Labs");
   await page.getByPlaceholder("Job title", { exact: true }).fill("Java Backend Intern");
-  await page.getByPlaceholder("Location").fill("Remote");
+  await page.getByPlaceholder("Location", { exact: true }).fill("Remote");
   await page.getByPlaceholder("Application URL").fill("https://example.com/jobs/java");
   await page.getByPlaceholder("Paste the job description…").fill(
     "Build Java REST APIs using Spring Boot and MySQL."
