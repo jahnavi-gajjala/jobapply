@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Activity, BriefcaseBusiness, FileUser, LayoutDashboard, Search, Sparkles, ScanSearch, Send, KanbanSquare, Sun, Moon, Plus, RefreshCw, LogOut, Menu, X } from "lucide-react";
+import { Activity, BriefcaseBusiness, FileUser, LayoutDashboard, Search, Sparkles, ScanSearch, Send, KanbanSquare, Sun, Moon, Plus, RefreshCw, LogOut, Menu, X, Mail } from "lucide-react";
 import api from "./services/api";
 
 const blank = { totalApplied: 0, underReview: 0, interviews: 0, offers: 0, rejected: 0, saved: 0 };
@@ -57,10 +57,11 @@ export default function App() {
   const [jobId, setJobId] = useState("");
   const [report, setReport] = useState(null);
   const [draft, setDraft] = useState("");
+  const [coverLetter, setCoverLetter] = useState("");
   const [activityFor, setActivityFor] = useState(null);
   const [activityItems, setActivityItems] = useState([]);
   const [activityLoading, setActivityLoading] = useState(false);
-  const nav = [["Overview", LayoutDashboard], ["My Resume", FileUser], ["Find Jobs", Search], ["ATS Analyzer", ScanSearch], ["AI Resume Tailor", Sparkles], ["Applications", KanbanSquare], ["Auto Apply", Send]];
+  const nav = [["Overview", LayoutDashboard], ["My Resume", FileUser], ["Find Jobs", Search], ["ATS Analyzer", ScanSearch], ["AI Resume Tailor", Sparkles], ["Cover Letter", Mail], ["Applications", KanbanSquare], ["Auto Apply", Send]];
 
   async function refresh() {
     if (!token) return;
@@ -136,6 +137,30 @@ export default function App() {
       setNotice("DOCX draft downloaded. Review formatting and every detail before applying.");
     } catch { setNotice("Could not export the tailored DOCX."); }
   }
+  async function generateCoverLetter() {
+    if (!resumeId || !jobId) { setNotice("Choose a resume and a job first."); return; }
+    try {
+      const res = await api.post("/ai/generate-cover-letter", {
+        resumeId: Number(resumeId),
+        jobId: Number(jobId)
+      });
+      setCoverLetter(res.data.coverLetter);
+      setNotice(res.data.note || "Cover-letter draft generated. Review it before sending.");
+    } catch (err) {
+      setNotice(err.response?.data?.message || "Could not generate a cover letter.");
+    }
+  }
+  function downloadCoverLetter() {
+    if (!coverLetter) return;
+    const url = URL.createObjectURL(new Blob([coverLetter], { type: "text/plain;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "jobapply-cover-letter.txt";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
   if (!token || !user) return <div className={dark ? "app dark" : "app light"}><Auth onAuth={authenticated} /></div>;
   const visibleJobs = jobs.filter(j => (j.jobTitle + " " + j.companyName + " " + (j.location || "")).toLowerCase().includes(query.toLowerCase()));
   const toolsPanel = <div className="panel tool-panel">
@@ -160,7 +185,7 @@ export default function App() {
           <section className="panel"><div className="panel-head"><h3>Recent applications</h3><button className="link-button" onClick={() => setPage("Applications")}>View all</button></div>{apps.length ? apps.slice(0, 5).map(a => <div className="list-row" key={a.id}><div><b>{a.jobTitle}</b><small>{a.companyName}</small></div><span className="status">{a.status.replace("_", " ")}</span></div>) : <p className="muted">No applications yet. Save a job to start tracking it.</p>}</section>
         </>}
         {page === "Find Jobs" && <>
-          <div className="page-heading"><p className="eyebrow">OPPORTUNITY DISCOVERY</p><h1>Find your <em>next role.</em></h1><p className="muted">Add job descriptions you find elsewhere. Add a job description you found elsewhere. Entries you add are private to your account.</p></div>
+          <div className="page-heading"><p className="eyebrow">OPPORTUNITY DISCOVERY</p><h1>Find your <em>next role.</em></h1><p className="muted">Add job descriptions you find elsewhere. Entries you add are private to your account.</p></div>
           <form className="panel form-panel" onSubmit={createJob}><h3>Add a job</h3><div className="form-grid">
             <input required placeholder="Company name" value={job.companyName} onChange={e => setJob({ ...job, companyName: e.target.value })} />
             <input required placeholder="Job title" value={job.jobTitle} onChange={e => setJob({ ...job, jobTitle: e.target.value })} />
@@ -185,6 +210,26 @@ export default function App() {
           <div className="page-heading"><p className="eyebrow">RESUME INTELLIGENCE</p><h1>Tailor your <em>resume.</em></h1><p className="muted">Creates a keyword-prioritized draft from your existing resume text.</p></div>
           {toolsPanel}<button className="primary" onClick={tailor}>Create tailored draft</button>
           {draft && <section className="panel"><div className="panel-head"><h3>Draft — review before using</h3><div className="row-actions"><button className="secondary" onClick={() => navigator.clipboard?.writeText(draft)}>Copy text</button><button className="primary" onClick={downloadTailoredDocx}>Download DOCX</button></div></div><textarea className="draft" value={draft} onChange={e => setDraft(e.target.value)} /><p className="muted">This MVP reorders existing lines; it does not create a formatted document or invent qualifications.</p></section>}
+        </>}
+        {page === "Cover Letter" && <>
+          <div className="page-heading">
+            <p className="eyebrow">APPLICATION PREPARATION</p>
+            <h1>Your <em>cover letter.</em></h1>
+            <p className="muted">Generate an editable draft using your selected resume and job. Review every statement before sending.</p>
+          </div>
+          {toolsPanel}
+          <button className="primary" onClick={generateCoverLetter} disabled={!resumeId || !jobId}>Generate cover letter</button>
+          {coverLetter && <section className="panel">
+            <div className="panel-head">
+              <div><h3>Cover-letter draft</h3><p className="muted">This is a starting draft, not a verified final application document.</p></div>
+              <div className="row-actions">
+                <button className="secondary" onClick={() => navigator.clipboard?.writeText(coverLetter)}>Copy text</button>
+                <button className="primary" onClick={downloadCoverLetter}>Download TXT</button>
+              </div>
+            </div>
+            <textarea className="draft" value={coverLetter} onChange={e => setCoverLetter(e.target.value)} aria-label="Edit cover letter draft" />
+            <p className="muted">Check the role, company, personal details and every claim before using this letter.</p>
+          </section>}
         </>}
         {page === "Applications" && <>
           <div className="page-heading"><p className="eyebrow">YOUR JOB SEARCH PIPELINE</p><h1>Application <em>tracker.</em></h1><p className="muted">Saved and preparation records are separate from submitted applications.</p></div>
