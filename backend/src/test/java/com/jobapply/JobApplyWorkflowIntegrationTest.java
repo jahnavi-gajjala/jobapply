@@ -295,6 +295,13 @@ class JobApplyWorkflowIntegrationTest {
                 .anyMatch(job -> job.getId().equals(importedJobId)),
                 "Imported listing should appear in the public-jobs repository query");
 
+        // Both the listing and individual-job endpoint should expose the shared record.
+        mockMvc.perform(get("/api/v1/jobs/" + importedJobId)
+                        .header("Authorization", bearer(candidateToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(importedJobId))
+                .andExpect(jsonPath("$.source").value("JOBICY"));
+
         // A provider listing is public/shared; candidate-specific tracking remains private.
         MvcResult visibleJobs = mockMvc.perform(get("/api/v1/jobs")
                         .header("Authorization", bearer(candidateToken)))
