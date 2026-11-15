@@ -34,6 +34,7 @@ public class ApplicationController {
  record ScheduleRequest(LocalDate interviewDate,LocalDate followUpDate){}
 
  @PostMapping
+ @ResponseStatus(HttpStatus.CREATED)
  @Transactional
  public Map<String,Object> create(@Valid @RequestBody CreateRequest r,Authentication auth){
   String email=auth.getName();
