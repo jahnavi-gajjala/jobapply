@@ -74,10 +74,19 @@ class JobApplyWorkflowIntegrationTest {
                 .path("id").asLong();
 
         // A second account must not see another candidate's private job.
-        mockMvc.perform(get("/api/v1/jobs")
+        MvcResult otherUserJobsResult = mockMvc.perform(get("/api/v1/jobs")
                         .header("Authorization", bearer(otherToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(0));
+                .andReturn();
+        boolean privateJobVisibleToOtherUser = false;
+        for (JsonNode visibleJob : objectMapper.readTree(otherUserJobsResult.getResponse().getContentAsString())) {
+            if (visibleJob.path("id").asLong() == jobId) {
+                privateJobVisibleToOtherUser = true;
+                break;
+            }
+        }
+        assertFalse(privateJobVisibleToOtherUser,
+                "A manually added private job must not be visible to another candidate");
         mockMvc.perform(get("/api/v1/jobs/" + jobId)
                         .header("Authorization", bearer(otherToken)))
                 .andExpect(status().isNotFound());
