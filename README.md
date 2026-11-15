@@ -30,6 +30,26 @@ Requirements: Java 21, Maven 3.9+, Node.js 20+, and MySQL 8.
 
 Backend health: `http://localhost:8080/api/v1/health`
 
+## Automated tests
+
+Backend unit and integration tests (MySQL must be running with the environment variables from `.env.example`):
+
+```bash
+cd backend
+mvn test
+```
+
+Frontend browser tests:
+
+```bash
+cd frontend
+npm install
+npx playwright install chromium
+npm run test:e2e
+```
+
+Playwright starts the Vite development server automatically and uses deterministic API mocks. The browser tests cover sign-in errors, adding and tracking a job, resume upload UI, and cover-letter editing/download. They validate the frontend experience; the backend suite separately tests the API and database workflow. GitHub Actions runs both suites and uploads screenshots/traces when browser checks fail.
+
 ## API endpoints
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
@@ -59,6 +79,6 @@ The ATS result is an explainable heuristic compatibility estimate, not an employ
 - Provider-authorized application submission adapters and end-to-end verification.
 - Email verification, password reset, refresh-token rotation/revocation, rate limiting and admin provisioning.
 - File malware scanning, private object storage, privacy/retention controls, audit logs and production deployment hardening.
-- Automated integration tests and full build verification in an environment with Maven and npm dependencies available.
+- Deployment-specific smoke tests, monitoring, backups and incident response.
 
 Local compose defaults are for development only. Never deploy with the example credentials.
