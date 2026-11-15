@@ -296,7 +296,9 @@ class JobApplyWorkflowIntegrationTest {
                 break;
             }
         }
-        assertTrue(importedListingVisible);
+        assertTrue(importedListingVisible,
+                "Imported Jobicy listing " + importedJobId + " not present in: "
+                        + visibleJobs.getResponse().getContentAsString());
 
         mockMvc.perform(post("/api/v1/applications")
                         .header("Authorization", bearer(candidateToken))
