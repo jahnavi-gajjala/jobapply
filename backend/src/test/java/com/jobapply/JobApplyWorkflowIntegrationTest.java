@@ -80,6 +80,17 @@ class JobApplyWorkflowIntegrationTest {
                         .header("Authorization", bearer(otherToken)))
                 .andExpect(status().isNotFound());
 
+        MockMultipartFile invalidPdfFile = new MockMultipartFile(
+                "file",
+                "renamed-text-file.pdf",
+                "application/pdf",
+                "this is not a PDF".getBytes(StandardCharsets.UTF_8)
+        );
+        mockMvc.perform(multipart("/api/v1/resumes/upload")
+                        .file(invalidPdfFile)
+                        .header("Authorization", bearer(ownerToken)))
+                .andExpect(status().isBadRequest());
+
         MockMultipartFile resumeFile = new MockMultipartFile(
                 "file",
                 "jahnavi-resume.docx",
