@@ -102,6 +102,9 @@ public class JobController {
     @PostMapping("/import")
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> importJob(@Valid @RequestBody ImportJobRequest request) {
+        if (!isCanonicalJobicyUrl(request.sourceUrl())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A valid Jobicy listing URL is required");
+        }
         String externalId = request.externalJobId().trim();
         return jobs.findBySourceAndExternalJobId("JOBICY", externalId)
                 .map(this::view)
@@ -109,10 +112,6 @@ public class JobController {
     }
 
     private Map<String, Object> createImportedJob(ImportJobRequest request, String externalId) {
-        if (!isCanonicalJobicyUrl(request.sourceUrl())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A valid Jobicy listing URL is required");
-        }
-
         Job job = new Job();
         job.setOwner(null); // External listings are shared; user-specific tracking stays in applications.
         job.setSource("JOBICY");
