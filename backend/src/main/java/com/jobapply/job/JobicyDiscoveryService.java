@@ -34,6 +34,10 @@ public class JobicyDiscoveryService {
                 .build();
     }
 
+    JobicyDiscoveryService(RestClient client) {
+        this.client = client;
+    }
+
     public JobDiscoveryResponse search(String keyword, String geo, int count, String cursor) {
         String normalizedGeo = normalizeGeo(geo);
         int safeCount = Math.max(1, Math.min(count, 50));
