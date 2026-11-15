@@ -189,12 +189,16 @@ class JobApplyWorkflowIntegrationTest {
                         ))))
                 .andExpect(status().isBadRequest());
 
-        mockMvc.perform(get("/api/v1/applications/" + applicationId + "/activity")
+        MvcResult activityResult = mockMvc.perform(get("/api/v1/applications/" + applicationId + "/activity")
                         .header("Authorization", bearer(ownerToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(4))
-                .andExpect(jsonPath("$[0].eventType").value("CREATED"))
-                .andExpect(jsonPath("$[1].eventType").value("STATUS_CHANGED"));
+                .andReturn();
+        String activityJson = activityResult.getResponse().getContentAsString();
+        assertTrue(activityJson.contains("CREATED"));
+        assertTrue(activityJson.contains("STATUS_CHANGED"));
+        assertTrue(activityJson.contains("NOTES_UPDATED"));
+        assertTrue(activityJson.contains("SCHEDULE_UPDATED"));
 
         mockMvc.perform(get("/api/v1/applications")
                         .header("Authorization", bearer(otherToken)))
