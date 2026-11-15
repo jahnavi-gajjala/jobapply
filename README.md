@@ -5,7 +5,7 @@ A multi-user MVP built with React + Vite, Java 21 + Spring Boot, Spring Security
 ## Working features in this build
 - Registration/login with BCrypt password hashing and JWT access tokens.
 - Per-user profile and application records.
-- Search recent remote listings from Jobicy (APAC and global filters), preserve provider attribution/source links, and import selected listings into the shared jobs catalogue.
+- Search recent remote listings from Jobicy (APAC and global filters; 3–50 character title keywords), preserve provider attribution/source links, and import selected listings into the shared jobs catalogue.
 - Add private job descriptions to your own workspace and track either private or imported jobs in a candidate-specific application tracker.
 - Duplicate application prevention for the same user and job.
 - Application statuses, private per-application notes, per-user dashboard counts, a chronological activity timeline, and interview/follow-up date tracking.
@@ -74,7 +74,7 @@ Playwright starts the Vite development server automatically and uses determinist
 Application totals count statuses `SUBMITTED`, `UNDER_REVIEW`, `INTERVIEW`, `REJECTED`, and `OFFER`. Saved/preparation statuses are not counted as applied. A user changes the status after applying externally; this build does not verify external submissions.
 
 ## Important limitations
-The ATS result is an explainable heuristic compatibility estimate, not an employer ATS score or hiring prediction. Resume tailoring currently reorders existing text only; the DOCX export is a basic editable draft, not a professionally formatted resume template. The original resume file is not retained; extracted text and file metadata are stored. Live discovery currently uses Jobicy's public remote-jobs feed only. The provider's APAC filter is regional and is not an India-only search; users must confirm each role's country eligibility on the original listing. Public feed links lead to the Jobicy listing page, not necessarily a direct employer ATS form. Users can still paste job descriptions manually. Automatic external application submission is not implemented.
+The ATS result is an explainable heuristic compatibility estimate, not an employer ATS score or hiring prediction. Resume tailoring currently reorders existing text only; the DOCX export is a basic editable draft, not a professionally formatted resume template. The original resume file is not retained; extracted text and file metadata are stored. Live discovery currently uses Jobicy's public remote-jobs feed only. The provider's APAC filter is regional and is not an India-only search; users must confirm each role's country eligibility on the original listing. The public `tag` filter searches job titles, accepts 3–50 characters, and returns only listings published within the last 7 days. Public feed links lead to the Jobicy listing page, not necessarily a direct employer ATS form. Users can still paste job descriptions manually. Automatic external application submission is not implemented.
 
 ## Remaining work before a public SaaS launch
 - Additional licensed job-source integrations and provider status checks for imported listings.
