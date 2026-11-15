@@ -1,0 +1,242 @@
+package com.jobapply;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@SpringBootTest
+@AutoConfigureMockMvc
+class JobApplyWorkflowIntegrationTest {
+
+    @Autowired private MockMvc mockMvc;
+    @Autowired private ObjectMapper objectMapper;
+
+    @Test
+    void candidateCanCompleteTheCoreJobSearchWorkflowAndDataStaysPrivate() throws Exception {
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        String ownerEmail = "owner-" + suffix + "@example.com";
+        String otherEmail = "other-" + suffix + "@example.com";
+
+        String ownerToken = register(ownerEmail, "Jahnavi Owner");
+        String otherToken = register(otherEmail, "Other Candidate");
+
+        mockMvc.perform(get("/api/v1/users/me")
+                        .header("Authorization", bearer(ownerToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value(ownerEmail))
+                .andExpect(jsonPath("$.fullName").value("Jahnavi Owner"));
+
+        String jobJson = objectMapper.writeValueAsString(Map.of(
+                "companyName", "Example Technologies",
+                "jobTitle", "Java Backend Developer Intern",
+                "jobDescription", "Java Spring Boot REST API development with MySQL and backend engineering.",
+                "location", "Remote",
+                "jobType", "INTERNSHIP",
+                "experienceLevel", "FRESHER",
+                "graduationYear", 2027,
+                "applicationUrl", "https://example.com/careers"
+        ));
+
+        MvcResult jobResult = mockMvc.perform(post("/api/v1/jobs")
+                        .header("Authorization", bearer(ownerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jobJson))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.companyName").value("Example Technologies"))
+                .andReturn();
+        long jobId = objectMapper.readTree(jobResult.getResponse().getContentAsString())
+                .path("id").asLong();
+
+        // A second account must not see another candidate's private job.
+        mockMvc.perform(get("/api/v1/jobs")
+                        .header("Authorization", bearer(otherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+        mockMvc.perform(get("/api/v1/jobs/" + jobId)
+                        .header("Authorization", bearer(otherToken)))
+                .andExpect(status().isNotFound());
+
+        MockMultipartFile resumeFile = new MockMultipartFile(
+                "file",
+                "jahnavi-resume.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                createResumeDocx()
+        );
+        MvcResult uploadResult = mockMvc.perform(multipart("/api/v1/resumes/upload")
+                        .file(resumeFile)
+                        .param("title", "Java Backend Resume")
+                        .header("Authorization", bearer(ownerToken)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.title").value("Java Backend Resume"))
+                .andExpect(jsonPath("$.isMaster").value(true))
+                .andReturn();
+        long resumeId = objectMapper.readTree(uploadResult.getResponse().getContentAsString())
+                .path("id").asLong();
+
+        mockMvc.perform(get("/api/v1/resumes/" + resumeId)
+                        .header("Authorization", bearer(otherToken)))
+                .andExpect(status().isNotFound());
+
+        String analyzeJson = objectMapper.writeValueAsString(Map.of(
+                "resumeId", resumeId,
+                "jobId", jobId
+        ));
+        MvcResult atsResult = mockMvc.perform(post("/api/v1/ats/analyze")
+                        .header("Authorization", bearer(ownerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(analyzeJson))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.overallScore").isNumber())
+                .andExpect(jsonPath("$.matchedKeywords").isArray())
+                .andExpect(jsonPath("$.disclaimer").exists())
+                .andReturn();
+        JsonNode ats = objectMapper.readTree(atsResult.getResponse().getContentAsString());
+        assertTrue(ats.path("overallScore").asInt() > 0);
+        assertTrue(ats.path("matchedKeywords").toString().toLowerCase().contains("java"));
+
+        MvcResult tailorResult = mockMvc.perform(post("/api/v1/ai/tailor-resume")
+                        .header("Authorization", bearer(ownerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(analyzeJson))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.requiresReview").value(true))
+                .andReturn();
+        assertTrue(objectMapper.readTree(tailorResult.getResponse().getContentAsString())
+                .path("tailoredText").asText().contains("Java"));
+
+        mockMvc.perform(post("/api/v1/ai/generate-cover-letter")
+                        .header("Authorization", bearer(ownerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(analyzeJson))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.coverLetter").value(org.hamcrest.Matchers.containsString("Java Backend Developer Intern")))
+                .andExpect(jsonPath("$.requiresReview").value(true));
+
+        String applicationJson = objectMapper.writeValueAsString(Map.of("jobId", jobId));
+        MvcResult applicationResult = mockMvc.perform(post("/api/v1/applications")
+                        .header("Authorization", bearer(ownerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(applicationJson))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("SAVED"))
+                .andExpect(jsonPath("$.companyName").value("Example Technologies"))
+                .andReturn();
+        long applicationId = objectMapper.readTree(applicationResult.getResponse().getContentAsString())
+                .path("id").asLong();
+
+        mockMvc.perform(post("/api/v1/applications")
+                        .header("Authorization", bearer(ownerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(applicationJson))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(patch("/api/v1/applications/" + applicationId + "/status")
+                        .header("Authorization", bearer(ownerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("status", "SUBMITTED"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SUBMITTED"))
+                .andExpect(jsonPath("$.submittedAt").isNotEmpty());
+
+        mockMvc.perform(put("/api/v1/applications/" + applicationId + "/notes")
+                        .header("Authorization", bearer(ownerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("notes", "Recruiter contacted me."))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.notes").value("Recruiter contacted me."));
+
+        mockMvc.perform(put("/api/v1/applications/" + applicationId + "/schedule")
+                        .header("Authorization", bearer(ownerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "interviewDate", "2026-12-01",
+                                "followUpDate", "2026-12-05"
+                        ))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.interviewDate").value("2026-12-01"))
+                .andExpect(jsonPath("$.followUpDate").value("2026-12-05"));
+
+        mockMvc.perform(put("/api/v1/applications/" + applicationId + "/schedule")
+                        .header("Authorization", bearer(ownerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "interviewDate", "2026-12-10",
+                                "followUpDate", "2026-12-05"
+                        ))))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/v1/applications/" + applicationId + "/activity")
+                        .header("Authorization", bearer(ownerToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(4))
+                .andExpect(jsonPath("$[0].eventType").value("CREATED"))
+                .andExpect(jsonPath("$[1].eventType").value("STATUS_CHANGED"));
+
+        mockMvc.perform(get("/api/v1/applications")
+                        .header("Authorization", bearer(otherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+
+        mockMvc.perform(get("/api/v1/applications/stats")
+                        .header("Authorization", bearer(ownerToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalApplied").value(1))
+                .andExpect(jsonPath("$.saved").value(0));
+    }
+
+    private String register(String email, String fullName) throws Exception {
+        String request = objectMapper.writeValueAsString(Map.of(
+                "fullName", fullName,
+                "email", email,
+                "password", "StrongPassword123!"
+        ));
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return objectMapper.readTree(result.getResponse().getContentAsString())
+                .path("token").asText();
+    }
+
+    private byte[] createResumeDocx() throws Exception {
+        try (XWPFDocument document = new XWPFDocument();
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            document.createParagraph().createRun().setText("Jahnavi Gajjala");
+            document.createParagraph().createRun().setText("Education");
+            document.createParagraph().createRun().setText("Skills: Java Spring Boot REST APIs MySQL");
+            document.createParagraph().createRun().setText("Projects");
+            document.createParagraph().createRun().setText("Experience building backend applications");
+            document.write(output);
+            return output.toByteArray();
+        }
+    }
+
+    private String bearer(String token) {
+        return "Bearer " + token;
+    }
+}
