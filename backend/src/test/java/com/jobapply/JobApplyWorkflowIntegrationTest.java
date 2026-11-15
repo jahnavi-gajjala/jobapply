@@ -254,6 +254,83 @@ class JobApplyWorkflowIntegrationTest {
                 .andExpect(jsonPath("$.saved").value(0));
     }
 
+    @Test
+    void importedJobicyListingsAreSharedAndCanBeTrackedByDifferentCandidates() throws Exception {
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        String ownerToken = register("jobicy-owner-" + suffix + "@example.com", "Jobicy Owner");
+        String candidateToken = register("jobicy-candidate-" + suffix + "@example.com", "Jobicy Candidate");
+        String externalId = String.valueOf(System.currentTimeMillis());
+
+        String importJson = objectMapper.writeValueAsString(Map.of(
+                "externalJobId", externalId,
+                "companyName", "Northstar Labs",
+                "jobTitle", "Java Backend Developer Intern",
+                "excerpt", "Build Java REST APIs with Spring Boot and MySQL.",
+                "location", "APAC",
+                "jobType", "Full-Time, Remote",
+                "experienceLevel", "Entry-level",
+                "sourceUrl", "https://jobicy.com/jobs/java-backend-developer-intern"
+        ));
+
+        MvcResult importResult = mockMvc.perform(post("/api/v1/jobs/import")
+                        .header("Authorization", bearer(ownerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(importJson))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.source").value("JOBICY"))
+                .andExpect(jsonPath("$.externalJobId").value(externalId))
+                .andExpect(jsonPath("$.applicationUrl").value("https://jobicy.com/jobs/java-backend-developer-intern"))
+                .andReturn();
+        long importedJobId = objectMapper.readTree(importResult.getResponse().getContentAsString())
+                .path("id").asLong();
+
+        // A provider listing is public/shared; candidate-specific tracking remains private.
+        MvcResult visibleJobs = mockMvc.perform(get("/api/v1/jobs")
+                        .header("Authorization", bearer(candidateToken)))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertTrue(visibleJobs.getResponse().getContentAsString().contains("\"id\":" + importedJobId));
+
+        mockMvc.perform(post("/api/v1/applications")
+                        .header("Authorization", bearer(candidateToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("jobId", importedJobId))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.jobTitle").value("Java Backend Developer Intern"));
+
+        // Importing the same provider ID is idempotent; it does not create duplicates.
+        MvcResult duplicateImport = mockMvc.perform(post("/api/v1/jobs/import")
+                        .header("Authorization", bearer(candidateToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(importJson))
+                .andExpect(status().isCreated())
+                .andReturn();
+        assertEquals(importedJobId, objectMapper.readTree(duplicateImport.getResponse().getContentAsString())
+                .path("id").asLong());
+
+        String unsafeImport = objectMapper.writeValueAsString(Map.of(
+                "externalJobId", String.valueOf(System.currentTimeMillis() + 1),
+                "companyName", "Fake Company",
+                "jobTitle", "Java Developer",
+                "excerpt", "Not a trusted source.",
+                "location", "Remote",
+                "jobType", "Full-Time",
+                "experienceLevel", "Entry-level",
+                "sourceUrl", "https://example.com/jobs/java"
+        ));
+        mockMvc.perform(post("/api/v1/jobs/import")
+                        .header("Authorization", bearer(candidateToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(unsafeImport))
+                .andExpect(status().isBadRequest());
+
+        // The importing account must not receive the other candidate's application record.
+        mockMvc.perform(get("/api/v1/applications")
+                        .header("Authorization", bearer(ownerToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
     private String register(String email, String fullName) throws Exception {
         String request = objectMapper.writeValueAsString(Map.of(
                 "fullName", fullName,
