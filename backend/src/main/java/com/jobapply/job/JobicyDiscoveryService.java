@@ -45,8 +45,12 @@ public class JobicyDiscoveryService {
         String normalizedGeo = normalizeGeo(geo);
         int safeCount = Math.max(1, Math.min(count, 50));
         String normalizedKeyword = keyword == null ? "" : keyword.trim();
-        if (normalizedKeyword.length() > 80) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Keyword must be 80 characters or fewer");
+        if (!normalizedKeyword.isBlank()
+                && (normalizedKeyword.length() < 3 || normalizedKeyword.length() > 50)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Keyword must be between 3 and 50 characters, or left blank"
+            );
         }
         if (cursor != null && cursor.length() > 4000) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid pagination cursor");
