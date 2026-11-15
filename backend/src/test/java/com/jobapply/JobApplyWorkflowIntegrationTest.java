@@ -101,6 +101,37 @@ class JobApplyWorkflowIntegrationTest {
                         .header("Authorization", bearer(otherToken)))
                 .andExpect(status().isNotFound());
 
+        MockMultipartFile alternateResumeFile = new MockMultipartFile(
+                "file",
+                "alternate-resume.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                createResumeDocx()
+        );
+        MvcResult alternateUploadResult = mockMvc.perform(multipart("/api/v1/resumes/upload")
+                        .file(alternateResumeFile)
+                        .param("title", "Alternative Resume")
+                        .header("Authorization", bearer(ownerToken)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.isMaster").value(false))
+                .andReturn();
+        long alternateResumeId = objectMapper.readTree(alternateUploadResult.getResponse().getContentAsString())
+                .path("id").asLong();
+
+        mockMvc.perform(put("/api/v1/resumes/" + alternateResumeId + "/master")
+                        .header("Authorization", bearer(ownerToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isMaster").value(true));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete(
+                        "/api/v1/resumes/" + alternateResumeId)
+                        .header("Authorization", bearer(ownerToken)))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/v1/resumes/" + resumeId)
+                        .header("Authorization", bearer(ownerToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isMaster").value(true));
+
         String analyzeJson = objectMapper.writeValueAsString(Map.of(
                 "resumeId", resumeId,
                 "jobId", jobId
