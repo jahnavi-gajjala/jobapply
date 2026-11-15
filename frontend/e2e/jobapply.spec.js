@@ -55,6 +55,16 @@ async function installApiMocks(page, options = {}) {
 
     if (method === "GET" && path === "/applications/stats") return json(stats());
     if (method === "GET" && path === "/applications") return json(applications);
+    if (method === "GET" && path === "/jobs/discover") {
+      return json({
+        jobs: options.discoveredJobs || [],
+        nextCursor: null,
+        hasMore: false,
+        source: "Jobicy",
+        sourceNotice: "Listings provided by Jobicy.",
+        lastUpdate: "2026-11-15T09:35:37+00:00",
+      });
+    }
     if (method === "GET" && path === "/jobs") return json(jobs);
     if (method === "GET" && path === "/resumes") return json(resumes);
 
@@ -74,6 +84,29 @@ async function installApiMocks(page, options = {}) {
       };
       jobs = [job, ...jobs];
       return json(job, 201);
+    }
+
+    if (method === "POST" && path === "/jobs/import") {
+      const body = JSON.parse(request.postData() || "{}");
+      const existing = jobs.find((item) =>
+        item.source === "JOBICY" && String(item.externalJobId) === String(body.externalJobId)
+      );
+      if (existing) return json(existing);
+      const imported = {
+        id: nextJobId++,
+        companyName: body.companyName,
+        jobTitle: body.jobTitle,
+        jobDescription: body.excerpt || "",
+        location: body.location || "",
+        jobType: body.jobType || "REMOTE",
+        experienceLevel: body.experienceLevel || "",
+        graduationYear: 0,
+        applicationUrl: body.sourceUrl,
+        source: "JOBICY",
+        externalJobId: String(body.externalJobId),
+      };
+      jobs = [imported, ...jobs];
+      return json(imported, 201);
     }
 
     if (method === "POST" && path === "/applications") {
@@ -244,6 +277,41 @@ test("candidate can upload a resume and generate an editable cover letter", asyn
   await page.getByRole("button", { name: "Download TXT" }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("jobapply-cover-letter.txt");
+});
+
+test("candidate can discover a Jobicy listing and add it to the application tracker", async ({ page }) => {
+  await installApiMocks(page, {
+    discoveredJobs: [{
+      id: "123456",
+      title: "Java Backend Intern",
+      companyName: "Northstar Labs",
+      location: "APAC",
+      jobType: "Full-Time, Remote",
+      experienceLevel: "Entry-level",
+      excerpt: "Build Java REST APIs with Spring Boot and MySQL.",
+      sourceUrl: "https://jobicy.com/jobs/java-backend-intern",
+      publishedAt: "2026-11-15T09:35:37+00:00",
+      salary: "INR 600000–900000 / yearly",
+    }],
+  });
+  await signIn(page);
+
+  await page.getByRole("button", { name: "Find Jobs" }).click();
+  await page.getByRole("button", { name: "Search live jobs" }).click();
+
+  const remoteJob = page.locator(".external-job").filter({ hasText: "Java Backend Intern" });
+  await expect(remoteJob).toBeVisible();
+  await expect(remoteJob.getByRole("link", { name: /View on Jobicy/ })).toHaveAttribute(
+    "href",
+    "https://jobicy.com/jobs/java-backend-intern"
+  );
+  await remoteJob.getByRole("button", { name: "Track this job" }).click();
+  await expect(page.getByText(/Job saved to your tracker/)).toBeVisible();
+
+  await page.getByRole("button", { name: "Applications" }).click();
+  const tracked = page.getByRole("row").filter({ hasText: "Java Backend Intern" });
+  await expect(tracked).toBeVisible();
+  await expect(tracked.locator("select")).toHaveValue("SAVED");
 });
 
 test("invalid login keeps the candidate on the sign-in screen with a useful error", async ({ page }) => {
