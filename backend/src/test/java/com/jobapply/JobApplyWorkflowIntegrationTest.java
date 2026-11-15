@@ -289,7 +289,14 @@ class JobApplyWorkflowIntegrationTest {
                         .header("Authorization", bearer(candidateToken)))
                 .andExpect(status().isOk())
                 .andReturn();
-        assertTrue(visibleJobs.getResponse().getContentAsString().contains("\"id\":" + importedJobId));
+        boolean importedListingVisible = false;
+        for (JsonNode visibleJob : objectMapper.readTree(visibleJobs.getResponse().getContentAsString())) {
+            if (visibleJob.path("id").asLong() == importedJobId) {
+                importedListingVisible = true;
+                break;
+            }
+        }
+        assertTrue(importedListingVisible);
 
         mockMvc.perform(post("/api/v1/applications")
                         .header("Authorization", bearer(candidateToken))
