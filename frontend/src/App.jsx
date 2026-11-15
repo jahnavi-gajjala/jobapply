@@ -259,7 +259,8 @@ export default function App() {
                 placeholder="Role title keyword (e.g. Java)"
                 value={remoteKeyword}
                 onChange={e => setRemoteKeyword(e.target.value)}
-                maxLength={80}
+                minLength={3}
+                maxLength={50}
               />
               <select aria-label="Remote job region" value={remoteGeo} onChange={e => setRemoteGeo(e.target.value)}>
                 <option value="apac">APAC (regional)</option>
