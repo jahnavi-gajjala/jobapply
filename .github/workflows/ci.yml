@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   frontend:
-    name: Frontend build
+    name: Frontend build and browser tests
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -25,6 +25,10 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run browser tests
+        run: npm run test:e2e
       - name: Build frontend
         run: npm run build
 
@@ -65,3 +69,4 @@ jobs:
           DB_PASSWORD: jobapply_dev
           JWT_SECRET: ci-only-secret-key-ci-only-secret-key-123456
         run: mvn --batch-mode --no-transfer-progress test
+}
