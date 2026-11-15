@@ -237,7 +237,7 @@ test("candidate can upload a resume and generate an editable cover letter", asyn
   await page.getByRole("button", { name: "Generate cover letter" }).click();
 
   const editor = page.getByLabel("Edit cover letter draft");
-  await expect(editor).toContainText("Northstar Labs");
+  await expect(editor).toHaveValue(/Northstar Labs/);
   await editor.fill("My reviewed cover letter draft.");
   await expect(editor).toHaveValue("My reviewed cover letter draft.");
 
