@@ -50,6 +50,14 @@ export default function App() {
   const [resumes, setResumes] = useState([]);
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
+  const [discoveredJobs, setDiscoveredJobs] = useState([]);
+  const [remoteKeyword, setRemoteKeyword] = useState("Java");
+  const [remoteGeo, setRemoteGeo] = useState("apac");
+  const [remoteLoading, setRemoteLoading] = useState(false);
+  const [remoteError, setRemoteError] = useState("");
+  const [remoteCursor, setRemoteCursor] = useState("");
+  const [remoteHasMore, setRemoteHasMore] = useState(false);
+  const [importingJobId, setImportingJobId] = useState("");
   const [job, setJob] = useState({ companyName: "", jobTitle: "", jobDescription: "", location: "", jobType: "FULL_TIME", experienceLevel: "FRESHER", graduationYear: 2027, applicationUrl: "" });
   const [file, setFile] = useState(null);
   const [resumeTitle, setResumeTitle] = useState("");
@@ -92,6 +100,59 @@ export default function App() {
   async function saveJob(id) {
     try { await api.post("/applications", { jobId: id }); setNotice("Job saved to your tracker."); await refresh(); }
     catch (err) { setNotice(err.response?.data?.message || "Could not save this job."); }
+  }
+  async function searchRemoteJobs(cursor = "", append = false) {
+    if (remoteLoading) return;
+    setRemoteLoading(true);
+    setRemoteError("");
+    try {
+      const params = { keyword: remoteKeyword.trim(), geo: remoteGeo, count: 20 };
+      if (cursor) params.cursor = cursor;
+      const response = await api.get("/jobs/discover", { params });
+      const incoming = response.data.jobs || [];
+      setDiscoveredJobs(previous => {
+        if (!append) return incoming;
+        const known = new Set(previous.map(item => String(item.id)));
+        return [...previous, ...incoming.filter(item => !known.has(String(item.id)))];
+      });
+      setRemoteCursor(response.data.nextCursor || "");
+      setRemoteHasMore(Boolean(response.data.hasMore && response.data.nextCursor));
+    } catch (err) {
+      setRemoteError(err.response?.data?.message || "Live job search is temporarily unavailable. Try again shortly.");
+      if (!append) {
+        setDiscoveredJobs([]);
+        setRemoteCursor("");
+        setRemoteHasMore(false);
+      }
+    } finally {
+      setRemoteLoading(false);
+    }
+  }
+  async function trackDiscoveredJob(discovered) {
+    setImportingJobId(String(discovered.id));
+    try {
+      const imported = await api.post("/jobs/import", {
+        externalJobId: String(discovered.id),
+        companyName: discovered.companyName,
+        jobTitle: discovered.title,
+        excerpt: discovered.excerpt || "",
+        location: discovered.location || "",
+        jobType: discovered.jobType || "REMOTE",
+        experienceLevel: discovered.experienceLevel || "",
+        sourceUrl: discovered.sourceUrl
+      });
+      await api.post("/applications", { jobId: imported.data.id });
+      setNotice("Job saved to your tracker. Open the original Jobicy listing to review the full requirements and apply.");
+      await refresh();
+    } catch (err) {
+      const message = err.response?.status === 409
+        ? "This job is already in your application tracker."
+        : err.response?.data?.message || "Could not add this job to your tracker.";
+      setNotice(message);
+      if (err.response?.status === 409) await refresh();
+    } finally {
+      setImportingJobId("");
+    }
   }
   async function setStatus(id, status) {
     try { await api.patch("/applications/" + id + "/status", { status }); setNotice("Application status updated."); await refresh(); }
@@ -186,15 +247,66 @@ export default function App() {
           <section className="panel"><div className="panel-head"><h3>Recent applications</h3><button className="link-button" onClick={() => setPage("Applications")}>View all</button></div>{apps.length ? apps.slice(0, 5).map(a => <div className="list-row" key={a.id}><div><b>{a.jobTitle}</b><small>{a.companyName}</small></div><span className="status">{a.status.replace("_", " ")}</span></div>) : <p className="muted">No applications yet. Save a job to start tracking it.</p>}</section>
         </>}
         {page === "Find Jobs" && <>
-          <div className="page-heading"><p className="eyebrow">OPPORTUNITY DISCOVERY</p><h1>Find your <em>next role.</em></h1><p className="muted">Add job descriptions you find elsewhere. Entries you add are private to your account.</p></div>
-          <form className="panel form-panel" onSubmit={createJob}><h3>Add a job</h3><div className="form-grid">
+          <div className="page-heading"><p className="eyebrow">OPPORTUNITY DISCOVERY</p><h1>Find your <em>next role.</em></h1><p className="muted">Search recent remote openings, then save promising roles to your private application tracker.</p></div>
+          <section className="panel form-panel live-jobs-panel">
+            <div className="panel-head">
+              <div><p className="eyebrow">LIVE REMOTE JOBS</p><h3>Discover opportunities</h3></div>
+              <span className="status">Powered by Jobicy</span>
+            </div>
+            <form className="form-grid" onSubmit={e => { e.preventDefault(); searchRemoteJobs(); }}>
+              <input
+                aria-label="Live job keyword"
+                placeholder="Role title keyword (e.g. Java)"
+                value={remoteKeyword}
+                onChange={e => setRemoteKeyword(e.target.value)}
+                maxLength={80}
+              />
+              <select aria-label="Remote job region" value={remoteGeo} onChange={e => setRemoteGeo(e.target.value)}>
+                <option value="apac">APAC (regional)</option>
+                <option value="anywhere">Anywhere / global</option>
+              </select>
+              <button className="primary" disabled={remoteLoading}>
+                {remoteLoading ? "Searching…" : "Search live jobs"}
+              </button>
+            </form>
+            <p className="muted">APAC is a regional filter, not an India-only filter. Check each listing’s location and eligibility. Jobicy’s public feed contains recent listings; new posts may appear with a delay.</p>
+            {remoteError && <p className="error" role="alert">{remoteError}</p>}
+            {discoveredJobs.map(item => {
+              const imported = jobs.find(existing => existing.source === "JOBICY" && String(existing.externalJobId) === String(item.id));
+              const alreadyTracked = imported && apps.some(application => application.jobId === imported.id);
+              return <article className="panel list-row job-row external-job" key={item.id}>
+                <div className="external-job-copy">
+                  <b>{item.title}</b>
+                  <small>{item.companyName} · {item.location || "Remote location not specified"} · {item.jobType || "Type not specified"}</small>
+                  {item.experienceLevel && <small>{item.experienceLevel}</small>}
+                  {item.salary && <small>{item.salary}</small>}
+                  {item.excerpt && <p className="muted">{item.excerpt}</p>}
+                  {item.publishedAt && <small>Published {new Date(item.publishedAt).toLocaleDateString()}</small>}
+                </div>
+                <div className="row-actions">
+                  <a href={item.sourceUrl} target="_blank" rel="noreferrer">View on Jobicy ↗</a>
+                  <button
+                    className="secondary"
+                    disabled={alreadyTracked || importingJobId === String(item.id)}
+                    onClick={() => trackDiscoveredJob(item)}
+                  >
+                    {alreadyTracked ? "Already tracked" : importingJobId === String(item.id) ? "Saving…" : "Track this job"}
+                  </button>
+                </div>
+              </article>;
+            })}
+            {discoveredJobs.length === 0 && !remoteLoading && !remoteError && <p className="muted">Search for Java, QA, software engineering, internships or another role title to see recent listings.</p>}
+            {remoteHasMore && <button className="secondary" onClick={() => searchRemoteJobs(remoteCursor, true)} disabled={remoteLoading}>{remoteLoading ? "Loading…" : "Load more jobs"}</button>}
+            <p className="muted">Listings and descriptions belong to Jobicy and their publishers. JobApply links back to the original Jobicy listing; review employer details before applying.</p>
+          </section>
+          <form className="panel form-panel" onSubmit={createJob}><h3>Add a job manually</h3><div className="form-grid">
             <input required placeholder="Company name" value={job.companyName} onChange={e => setJob({ ...job, companyName: e.target.value })} />
             <input required placeholder="Job title" value={job.jobTitle} onChange={e => setJob({ ...job, jobTitle: e.target.value })} />
             <input placeholder="Location" value={job.location} onChange={e => setJob({ ...job, location: e.target.value })} />
             <input placeholder="Application URL" value={job.applicationUrl} onChange={e => setJob({ ...job, applicationUrl: e.target.value })} />
           </div><textarea placeholder="Paste the job description…" value={job.jobDescription} onChange={e => setJob({ ...job, jobDescription: e.target.value })} /><button className="primary">Add to my jobs</button></form>
           <input className="search" placeholder="Search company, job title or location…" value={query} onChange={e => setQuery(e.target.value)} />
-          {visibleJobs.map(j => <article className="panel list-row job-row" key={j.id}><div><b>{j.jobTitle}</b><small>{j.companyName} · {j.location || "Location not specified"}</small></div><div className="row-actions"><button className="secondary" onClick={() => saveJob(j.id)}>Save job</button>{j.applicationUrl && <a href={j.applicationUrl} target="_blank" rel="noreferrer">Employer site ↗</a>}</div></article>)}
+          {visibleJobs.map(j => <article className="panel list-row job-row" key={j.id}><div><b>{j.jobTitle}</b><small>{j.companyName} · {j.location || "Location not specified"}</small></div><div className="row-actions"><button className="secondary" onClick={() => saveJob(j.id)}>Save job</button>{j.applicationUrl && <a href={j.applicationUrl} target="_blank" rel="noreferrer">{j.source === "JOBICY" ? "Source listing ↗" : "Employer site ↗"}</a>}</div></article>)}
           {!visibleJobs.length && <p className="muted">No jobs found. Add a job description above.</p>}
         </>}
         {page === "My Resume" && <>
