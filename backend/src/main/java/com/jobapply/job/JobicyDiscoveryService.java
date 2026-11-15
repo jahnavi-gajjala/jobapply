@@ -1,5 +1,6 @@
 package com.jobapply.job;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -24,6 +25,7 @@ public class JobicyDiscoveryService {
             "Job listings provided by Jobicy. Open the original listing for full details and application instructions.";
     private final RestClient client;
 
+    @Autowired
     public JobicyDiscoveryService(RestClient.Builder builder) {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(Duration.ofSeconds(5));
