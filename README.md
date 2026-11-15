@@ -5,7 +5,8 @@ A multi-user MVP built with React + Vite, Java 21 + Spring Boot, Spring Security
 ## Working features in this build
 - Registration/login with BCrypt password hashing and JWT access tokens.
 - Per-user profile and application records.
-- Browse/search public job records and add private job descriptions to your own workspace.
+- Search recent remote listings from Jobicy (APAC and global filters), preserve provider attribution/source links, and import selected listings into the shared jobs catalogue.
+- Add private job descriptions to your own workspace and track either private or imported jobs in a candidate-specific application tracker.
 - Duplicate application prevention for the same user and job.
 - Application statuses, private per-application notes, per-user dashboard counts, a chronological activity timeline, and interview/follow-up date tracking.
 - PDF/DOCX resume text extraction (up to 5 MB; scanned-PDF OCR is not included), master-resume selection, and safe deletion fallback.
@@ -48,13 +49,15 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-Playwright starts the Vite development server automatically and uses deterministic API mocks. The browser tests cover sign-in errors, adding and tracking a job, resume upload UI, and cover-letter editing/download. They validate the frontend experience; the backend suite separately tests the API and database workflow. GitHub Actions runs both suites and uploads screenshots/traces when browser checks fail.
+Playwright starts the Vite development server automatically and uses deterministic API mocks. The browser tests cover sign-in errors, adding a manual job, discovering/importing/tracking a Jobicy listing, resume upload UI, and cover-letter editing/download. They validate the frontend experience; the backend suite separately tests the API and database workflow. GitHub Actions runs both suites and uploads screenshots/traces when browser checks fail.
 
 ## API endpoints
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
 - `GET /api/v1/users/me`
 - `GET /api/v1/jobs` and `GET /api/v1/jobs?q=java`
+- `GET /api/v1/jobs/discover?keyword=java&geo=apac&count=20` (authenticated; live Jobicy feed, cursor pagination)
+- `POST /api/v1/jobs/import` (authenticated; idempotently imports a canonical Jobicy listing into the shared catalogue)
 - `POST /api/v1/jobs` (authenticated; creates a private job record)
 - `POST /api/v1/resumes/upload` (multipart field `file`)
 - `GET /api/v1/resumes`, `GET /api/v1/resumes/{id}`, `PUT /api/v1/resumes/{id}/master`, `DELETE /api/v1/resumes/{id}`
@@ -71,10 +74,10 @@ Playwright starts the Vite development server automatically and uses determinist
 Application totals count statuses `SUBMITTED`, `UNDER_REVIEW`, `INTERVIEW`, `REJECTED`, and `OFFER`. Saved/preparation statuses are not counted as applied. A user changes the status after applying externally; this build does not verify external submissions.
 
 ## Important limitations
-The ATS result is an explainable heuristic compatibility estimate, not an employer ATS score or hiring prediction. Resume tailoring currently reorders existing text only; the DOCX export is a basic editable draft, not a professionally formatted resume template. The original resume file is not retained; extracted text and file metadata are stored. The job list is not yet connected to live job boards; users can paste job descriptions manually. Automatic external application submission is not implemented.
+The ATS result is an explainable heuristic compatibility estimate, not an employer ATS score or hiring prediction. Resume tailoring currently reorders existing text only; the DOCX export is a basic editable draft, not a professionally formatted resume template. The original resume file is not retained; extracted text and file metadata are stored. Live discovery currently uses Jobicy's public remote-jobs feed only. The provider's APAC filter is regional and is not an India-only search; users must confirm each role's country eligibility on the original listing. Public feed links lead to the Jobicy listing page, not necessarily a direct employer ATS form. Users can still paste job descriptions manually. Automatic external application submission is not implemented.
 
 ## Remaining work before a public SaaS launch
-- Live job-source integrations and verified current job ingestion.
+- Additional licensed job-source integrations and provider status checks for imported listings.
 - LLM-backed resume rewriting and formatted PDF/DOCX export.
 - Provider-authorized application submission adapters and end-to-end verification.
 - Email verification, password reset, refresh-token rotation/revocation, rate limiting and admin provisioning.
