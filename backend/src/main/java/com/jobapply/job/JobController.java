@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -53,9 +55,15 @@ public class JobController {
             @RequestParam(required = false) String q,
             Authentication auth
     ) {
-        List<Job> all = auth == null
-                ? jobs.findByStatusAndOwnerIsNullOrderByCreatedAtDesc("ACTIVE")
-                : jobs.findVisibleToUser(auth.getName());
+        // Query shared and user-owned rows separately. Keeping these paths separate
+        // avoids an outer-join OR condition hiding rows with a null owner.
+        List<Job> all = new ArrayList<>(
+                jobs.findByStatusAndOwnerIsNullOrderByCreatedAtDesc("ACTIVE")
+        );
+        if (auth != null) {
+            all.addAll(jobs.findOwnedActiveByEmail(auth.getName()));
+        }
+        all.sort(Comparator.comparing(Job::getCreatedAt).reversed());
 
         if (q != null && !q.isBlank()) {
             String term = q.trim().toLowerCase();
@@ -72,7 +80,8 @@ public class JobController {
     public Map<String, Object> get(@PathVariable Long id, Authentication auth) {
         Job job = auth == null
                 ? jobs.findPublicById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND))
-                : jobs.findVisibleById(id, auth.getName())
+                : jobs.findPublicById(id)
+                        .or(() -> jobs.findOwnedByIdAndEmail(id, auth.getName()))
                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         return view(job);
     }
