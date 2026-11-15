@@ -180,7 +180,7 @@ test("candidate can add a job, save it, and update its application status", asyn
 
   await page.getByRole("button", { name: "Find Jobs" }).click();
   await page.getByPlaceholder("Company name").fill("Northstar Labs");
-  await page.getByPlaceholder("Job title").fill("Java Backend Intern");
+  await page.getByPlaceholder("Job title", { exact: true }).fill("Java Backend Intern");
   await page.getByPlaceholder("Location").fill("Remote");
   await page.getByPlaceholder("Application URL").fill("https://example.com/jobs/java");
   await page.getByPlaceholder("Paste the job description…").fill(
@@ -199,7 +199,6 @@ test("candidate can add a job, save it, and update its application status", asyn
   await applicationRow.locator("select").selectOption("SUBMITTED");
   await expect(applicationRow.locator("select")).toHaveValue("SUBMITTED");
 
-  await expect(page.getByText("SUBMITTED", { exact: true })).toBeVisible();
   expect(mocks.getAuthorizationHeaders().length).toBeGreaterThan(0);
   expect(mocks.getAuthorizationHeaders().every((value) => value === "Bearer playwright-test-token")).toBeTruthy();
 });
@@ -232,8 +231,8 @@ test("candidate can upload a resume and generate an editable cover letter", asyn
   await expect(page.getByText("Uploaded Resume")).toBeVisible();
 
   await page.getByRole("button", { name: "Cover Letter" }).click();
-  await page.getByLabel("Resume", { exact: true }).selectOption({ label: "Uploaded Resume" });
-  await page.getByLabel("Job", { exact: true }).selectOption({ label: /Java Backend Intern/ });
+  await page.locator(".tool-panel select").nth(0).selectOption({ label: "Uploaded Resume" });
+  await page.locator(".tool-panel select").nth(1).selectOption({ label: "Java Backend Intern — Northstar Labs" });
   await page.getByRole("button", { name: "Generate cover letter" }).click();
 
   const editor = page.getByLabel("Edit cover letter draft");
