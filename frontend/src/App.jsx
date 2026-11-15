@@ -67,7 +67,10 @@ export default function App() {
     try {
       const [s, a, j, r] = await Promise.all([api.get("/applications/stats"), api.get("/applications"), api.get("/jobs"), api.get("/resumes")]);
       setStats(s.data); setApps(a.data); setJobs(j.data); setResumes(r.data);
-      if (!resumeId && r.data.length) setResumeId(String(r.data[0].id));
+      if (!resumeId && r.data.length) {
+        const preferredResume = r.data.find(item => item.isMaster) || r.data[0];
+        setResumeId(String(preferredResume.id));
+      }
     } catch (err) {
       if (err.response?.status === 401) logout();
       else setNotice("Could not refresh your workspace. Check that the backend is running.");
